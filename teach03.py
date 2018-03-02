@@ -7,11 +7,13 @@ import scipy
 
 data = pd.read_csv('adult.data.txt', skipinitialspace=True)
 
+# rename columns
 data.columns = ['age', 'workclass', 'fnlwgt', 'education', 'educationNum',
                 'maritalStatus', 'occupation', 'relationship', 'race', 'sex',
                 'capitalGain', 'capitalLoss', 'hoursPerWeek', 'nativeCountry',
                 'pay']
 
+# simplify datasets
 data.workclass.replace({'Private': 1, 'Self-emp-not-inc': 1, 'Self-emp-inc': 1, 'Federal-gov': 1,
                         'Local-gov': 1, 'State-gov': 1,
                         'Without-pay': 0, 'Never-worked': 0, '?': 0}
@@ -53,9 +55,12 @@ data.pay.replace({'>50K': 1, '<=50K': 0}, inplace=True)
 
 del data['education']
 
-data = data.as_matrix()
+target = data.pay
+del data['pay']
 
-target = np.split(data, 8)
+data = data.as_matrix()
+target = target.as_matrix()
+# target = np.split(data, [14])
 
 class KNNClassifier:
     def __init__(self):
@@ -70,54 +75,73 @@ class KNNModel:
         self.data = data
         self.target = target
 
-
+    # Predicts target data based on test data
     def predict(self, k, data):
         closest = []
         for row in data:
+            # Display given row
+            # print(row)
+
+            # Calculates 'distance' to determine 'closest neighbors'
             distances = []
             for srow in self.data:
                 distance = 0
+                # Euclidean distance
                 for j in range(0,srow.shape[0]):
                     distance += (row[j]-srow[j])**2
                 distances.append(distance)
-            index = np.argsort(distances,axis=0)
+
+            # Sorts distances
+            index = np.argsort(distances, axis=0)
+
+            # Finds all unique instances of k closest neighbors
             classes = np.unique(self.target[index[:k]])
-            if len(classes)==1:
+
+            # If only one class, return said class.
+            # Otherwise count which class has the most instances.
+            if len(classes) == 1:
                 closest.append(int(classes[0]))
             else:
-                countfreqclasses = np.zeros(max(classes)+1)
+                count_freq_classes = np.zeros(max(classes)+1)
                 for j in range(k):
-                    countfreqclasses[self.target[index[j]]] += 1
-                closest.append(np.argmax(countfreqclasses))
+                    count_freq_classes[self.target[index[j]]] += 1
+                closest.append(np.argmax(count_freq_classes))
         return closest
 
 
-
 def main():
-    iris = datasets.load_iris()
-    train_data, test_data, train_target, test_target = train_test_split(iris.data, iris.target)
+    # iris = datasets.load_iris()
+    # train_data, test_data, train_target, test_target = train_test_split(iris.data, iris.target)
+    train_size = 0.001
+    train_data, test_data, train_target, test_target = train_test_split(data, target, train_size=train_size, test_size=1-train_size)
+    print(train_target)
+    # Calculate KNN using my algorithm
     clf = KNNClassifier()
     model = clf.fit(train_data, train_target)
-    targetspredicted = model.predict(4, test_data)
-    i = 0
+    my_predictions = model.predict(4, test_data)
+
+    # Calculate KNN of sklearn's algorithm
     classifier = KNeighborsClassifier(n_neighbors=4)
     model = classifier.fit(train_data, train_target)
-    predictions = model.predict(test_data)
+    sklearn_predictions = model.predict(test_data)
 
-    for test in zip(targetspredicted, test_target):
+    # accuracy of my algorithm
+    i = 0
+    for test in zip(my_predictions, test_target):
         k, j = test
         if k == j:
             i += 1
     i = (100 * i) / test_target.shape[0]
-    print(str(i) + "% accuracy (mine)")
+    print("Accuracy of my algorithm: " + str(i) + "%")
+
+    # accuracy of sklearn's algorithm
     i = 0
-    for test in zip(predictions, test_target):
+    for test in zip(sklearn_predictions, test_target):
         k, j = test
         if k == j:
             i += 1
-    i = (100*i)/test_target.shape[0]
-    print(str(i) + "% accuracy (theirs)")
-
+    i = (100 * i) / test_target.shape[0]
+    print("Accuracy of sklearn's algorithm: " + str(i) + "%")
 
 
 if __name__ == "__main__":
